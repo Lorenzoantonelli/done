@@ -263,16 +263,10 @@ if set -q __done_enabled
                     echo "$message" | terminal-notifier -title "$title" -sender "$__done_initial_window_id"
                 end
 
-            else if type -q osascript # AppleScript
-                # escape double quotes that might exist in the message and break osascript. fixes #133
+            else if test (uname) = "Darwin" # macOS
                 set -l message (string replace --all '"' '\"' "$message")
                 set -l title (string replace --all '"' '\"' "$title")
-
-                if test "$__done_notify_sound" -eq 1
-                    osascript -e "display notification \"$message\" with title \"$title\" sound name \"Glass\""
-                else
-                    osascript -e "display notification \"$message\" with title \"$title\""
-                end
+                printf "\033]777;notify;$title;$message\007"
 
             else if type -q notify-send # Linux notify-send
                 # set urgency to normal
