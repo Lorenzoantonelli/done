@@ -1,8 +1,11 @@
-function __done_tg_notify --argument-names title commandline exit_status
+function __done_tg_notify --argument-names title commandline exit_status duration
     if not set -q DONE_TG_BOT_TOKEN DONE_TG_CHAT_ID
         return
     end
     if set -q __done_tg_only_failures; and test "$exit_status" -eq 0
+        return
+    end
+    if set -q __done_tg_min_cmd_duration; and test -n "$duration"; and test "$duration" -le "$__done_tg_min_cmd_duration"
         return
     end
 

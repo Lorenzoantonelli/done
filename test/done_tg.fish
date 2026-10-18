@@ -59,6 +59,15 @@ send 'Failed (1) after 6s' (string repeat -n 3500 a) 1
 string match -q -- "*<pre>"(string repeat -n 3500 a)"</pre>*" (cat $CAPTURE.argv)
 check "keeps commands at the limit intact"
 
+set -g __done_tg_min_cmd_duration 60000
+not send 'Failed (1) after 30s' 'sleep 30' 1 30000
+check "min_cmd_duration skips shorter commands"
+send 'Failed (1) after 1m 30s' 'sleep 90' 1 90000
+check "min_cmd_duration sends longer commands"
+send 'Test notification' done_tg_test 1
+check "min_cmd_duration ignores calls without a duration"
+set -e __done_tg_min_cmd_duration
+
 cd /
 rm -rf $tmp
 exit $failed
