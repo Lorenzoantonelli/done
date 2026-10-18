@@ -68,6 +68,15 @@ send 'Test notification' done_tg_test 1
 check "min_cmd_duration ignores calls without a duration"
 set -e __done_tg_min_cmd_duration
 
+set -e __done_tg_only_failures
+set -g __done_tg_silent_success
+send 'Done in 6s' 'sleep 6' 0
+string match -q -- disable_notification=true (cat $CAPTURE.argv)
+check "silent_success silences successes"
+send 'Failed (1) after 6s' false 1
+string match -q -- disable_notification=false (cat $CAPTURE.argv)
+check "silent_success still buzzes on failures"
+
 cd /
 rm -rf $tmp
 exit $failed

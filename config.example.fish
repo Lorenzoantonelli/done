@@ -8,4 +8,7 @@ set -g DONE_TG_CHAT_ID your-chat-id
 # Optional: only send Telegram messages for commands longer than this (ms).
 # set -g __done_tg_min_cmd_duration 60000
 
+# Optional: deliver successes without sound; failures still buzz.
+# set -g __done_tg_silent_success
+
 # Run done_tg_test to check the setup. Delivery errors are appended to $__fish_user_data_dir/done_tg.log.
