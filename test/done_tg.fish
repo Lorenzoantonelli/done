@@ -48,5 +48,9 @@ check "only_failures skips successes"
 send 'Failed (1) after 6s' false 1
 check "only_failures still sends failures"
 
+send 'Failed (1) after 6s' (string repeat -n 5000 a) 1
+string match -q -- "*<pre>"(string repeat -n 4000 a)"</pre>*" (cat $CAPTURE.argv)
+check "truncates long commands"
+
 rm -rf $tmp
 exit $failed

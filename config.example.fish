@@ -1,4 +1,4 @@
-# Add these to your personal config.fish. Both enable Telegram delivery.
+# Add these to your personal config.fish. Both enable Telegram delivery (fish 3.1+, curl).
 set -g DONE_TG_BOT_TOKEN your-bot-token
 set -g DONE_TG_CHAT_ID your-chat-id
 
