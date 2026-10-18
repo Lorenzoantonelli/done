@@ -256,7 +256,7 @@ if set -q __done_enabled
                 set message (tmux lsw  -F"$__done_tmux_pane_format" -f '#{==:#{pane_id},'$TMUX_PANE'}')" $message"
             end
 
-            functions -q __done_tg_notify; and __done_tg_notify "$title" "$argv[1]" $exit_status
+            functions -q __done_tg_notify; and __done_tg_notify "$title" "$argv[1]" $exit_status $cmd_duration
 
             if set -q __done_notification_command
                 eval $__done_notification_command

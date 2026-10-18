@@ -1,17 +1,26 @@
-function __done_tg_notify --argument-names title commandline exit_status
+function __done_tg_notify --argument-names title commandline exit_status duration
     if not set -q DONE_TG_BOT_TOKEN DONE_TG_CHAT_ID
         return
     end
     if set -q __done_tg_only_failures; and test "$exit_status" -eq 0
         return
     end
+    if set -q __done_tg_min_cmd_duration; and test -n "$duration"; and test "$duration" -le "$__done_tg_min_cmd_duration"
+        return
+    end
+
+    set -l silent false
+    if set -q __done_tg_silent_success; and test "$exit_status" -eq 0
+        set silent true
+    end
 
     # Telegram rejects messages over 4096 characters.
-    if test (string length -- "$commandline") -gt 4000
-        set commandline (string sub -l 3999 -- "$commandline" | string collect)…
+    if test (string length -- "$commandline") -gt 3500
+        set commandline (string sub -l 3499 -- "$commandline" | string collect)…
     end
-    set -l html (printf '%s\n' "$title" "$commandline" | string replace -a '&' '&amp;' | string replace -a '<' '&lt;' | string replace -a '>' '&gt;')
-    set -l text "📝 $html[1]"\n\n"<pre>"(string join \n -- $html[2..-1] | string collect)"</pre> ✨"
+    set -l wd (string replace --regex "^$HOME" "~" -- $PWD)
+    set -l html (printf '%s\n' "$title" "$wd" "$commandline" | string replace -a '&' '&amp;' | string replace -a '<' '&lt;' | string replace -a '>' '&gt;')
+    set -l text "📝 $html[1]"\n"📂 $html[2]"\n\n"<pre>"(string join \n -- $html[3..-1] | string collect)"</pre> ✨"
 
     mkdir -p "$__fish_user_data_dir"
     # The URL is fed through stdin so the bot token never appears in argv (ps).
@@ -20,6 +29,7 @@ function __done_tg_notify --argument-names title commandline exit_status
             --data-urlencode "chat_id=$DONE_TG_CHAT_ID" \
             --data-urlencode "text=$text" \
             --data-urlencode parse_mode=HTML \
+            --data-urlencode disable_notification=$silent \
             2>>"$__fish_user_data_dir/done_tg.log" &
     disown $last_pid
 end
