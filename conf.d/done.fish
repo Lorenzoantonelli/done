@@ -119,20 +119,15 @@ end
 function __done_is_tmux_window_active
     set -q fish_pid; or set -l fish_pid %self
 
-    # find the outermost process within tmux
-    # ppid != "tmux" -> pid = ppid
-    # ppid == "tmux" -> break
+    # Walk to the fish process directly below tmux.
     set tmux_fish_pid $fish_pid
     while set tmux_fish_ppid (ps -o ppid= -p $tmux_fish_pid | string trim)
-        # remove leading hyphen so that basename does not treat it as an argument (e.g. -fish), and return only
-        # the actual command and not its arguments so that basename finds the correct command name.
-        # (e.g. '/usr/bin/tmux' from command '/usr/bin/tmux new-session -c /some/start/dir')
+        # Strip login-shell '-' and arguments before comparing process names.
         and ! string match -q "tmux*" (basename (ps -o command= -p $tmux_fish_ppid | string replace -r '^-' '' | string split ' ')[1])
         set tmux_fish_pid $tmux_fish_ppid
     end
 
-    # tmux session attached and window is active -> no notification
-    # all other combinations -> send notification
+    # Only an attached session's active window counts as focused.
     tmux list-panes -a -F "#{session_attached} #{window_active} #{pane_pid}" | string match -q "1 1 $tmux_fish_pid"
 end
 
@@ -141,8 +136,6 @@ function __done_is_screen_window_active
 end
 
 function __done_is_process_window_focused
-    # Return false if the window is not focused
-
     if set -q __done_allow_nongraphical
         return 1
     end
@@ -166,14 +159,12 @@ function __done_is_process_window_focused
     else if test "$__done_initial_window_id" != "$__done_focused_window_id"
         return 1
     end
-    # If inside a tmux session, check if the tmux window is focused
     if type -q tmux
         and test -n "$TMUX"
         __done_is_tmux_window_active
         return $status
     end
 
-    # If inside a screen session, check if the screen window is focused
     if type -q screen
         and test -n "$STY"
         __done_is_screen_window_active
@@ -199,9 +190,8 @@ function __done_humanize_duration -a milliseconds
     end
 end
 
-# verify that the system has graphical capabilities before initializing
-if test -z "$SSH_CLIENT" # not over ssh
-    and count (__done_get_focused_window_id) >/dev/null # is able to get window id
+if test -z "$SSH_CLIENT"
+    and count (__done_get_focused_window_id) >/dev/null
     set __done_enabled
 end
 
@@ -230,17 +220,15 @@ if set -q __done_enabled
         set -q cmd_duration; or set -l cmd_duration $CMD_DURATION
 
         if test -n "$cmd_duration"
-            and test "$cmd_duration" -gt "$__done_min_cmd_duration" # longer than notify_duration
-            and not __done_is_process_window_focused # process pane or window not focused
+            and test "$cmd_duration" -gt "$__done_min_cmd_duration"
+            and not __done_is_process_window_focused
 
-            # don't notify if command matches exclude list
             for pattern in $__done_exclude
                 if string match -qr -- $pattern $argv[1]
                     return
                 end
             end
 
-            # Store duration of last command
             set -l humanized_duration (__done_humanize_duration "$cmd_duration")
 
             set -l title "Done in $humanized_duration"
@@ -256,15 +244,17 @@ if set -q __done_enabled
                 set message (tmux lsw  -F"$__done_tmux_pane_format" -f '#{==:#{pane_id},'$TMUX_PANE'}')" $message"
             end
 
+            __done_tg_notify "$title" "$argv[1]"
+
             if set -q __done_notification_command
                 eval $__done_notification_command
                 if test "$__done_notify_sound" -eq 1
-                    echo -e "\a" # bell sound
+                    echo -e "\a"
                 end
 
             else if set -q KITTY_WINDOW_ID
-                printf "\x1b]99;i=done:d=0;$title\x1b\\"
-                printf "\x1b]99;i=done:d=1:p=body;$message\x1b\\"
+                printf '\x1b]99;i=done:d=0;%s\x1b\\' "$title"
+                printf '\x1b]99;i=done:d=1:p=body;%s\x1b\\' "$message"
 
             else if test "$TERM_PROGRAM" = ghostty; or test "$TERM_PROGRAM" = WezTerm
                 printf "\x1b]777;notify;%s;%s\x1b\\" "$title" "$message"
@@ -272,29 +262,15 @@ if set -q __done_enabled
             else if test "$TERM_PROGRAM" = iTerm.app
                 printf "\x1b]9;%s: %s\x1b\\" "$title" "$message"
 
-            else if type -q terminal-notifier # https://github.com/julienXX/terminal-notifier
-                if test "$__done_notify_sound" -eq 1
-                    # pipe message into terminal-notifier to avoid escaping issues (https://github.com/julienXX/terminal-notifier/issues/134). fixes #140
-                    # not using the -sender option because it hangs for some apps (https://github.com/julienXX/terminal-notifier/issues/301)
-                    echo "$message" | terminal-notifier -title "$title" -sound default
-                else
-                    echo "$message" | terminal-notifier -title "$title"
-                end
+            else if test (uname) = "Darwin"
+                printf '\033]777;notify;%s;%s\007' "$title" "$message"
 
-            else if test (uname) = "Darwin" # macOS
-                set -l message (string replace --all '"' '\"' "$message")
-                set -l title (string replace --all '"' '\"' "$title")
-                printf "\033]777;notify;$title;$message\007"
-
-            else if type -q notify-send # Linux notify-send
-                # set urgency to normal
+            else if type -q notify-send
                 set -l urgency normal
 
-                # use user-defined urgency if set
                 if set -q __done_notification_urgency_level
                     set urgency "$__done_notification_urgency_level"
                 end
-                # override user-defined urgency level if non-zero exitstatus
                 if test "$exit_status" -ne 0
                     set urgency critical
                     if set -q __done_notification_urgency_level_failure
@@ -305,24 +281,24 @@ if set -q __done_enabled
                 notify-send --hint=int:transient:1 --urgency=$urgency --icon=utilities-terminal --app-name=fish --expire-time=$__done_notification_duration "$title" "$message"
 
                 if test "$__done_notify_sound" -eq 1
-                    echo -e "\a" # bell sound
+                    echo -e "\a"
                 end
 
-            else if type -q notify-desktop # Linux notify-desktop
+            else if type -q notify-desktop
                 set -l urgency
                 if test "$exit_status" -ne 0
                     set urgency "--urgency=critical"
                 end
                 notify-desktop $urgency --icon=utilities-terminal --app-name=fish "$title" "$message"
                 if test "$__done_notify_sound" -eq 1
-                    echo -e "\a" # bell sound
+                    echo -e "\a"
                 end
 
             else if uname -a | string match --quiet --ignore-case --regex microsoft
                 __done_windows_notification "$title" "$message"
 
-            else # anything else
-                echo -e "\a" # bell sound
+            else
+                echo -e "\a"
             end
 
         end
@@ -330,7 +306,6 @@ if set -q __done_enabled
 end
 
 function __done_uninstall -e done_uninstall
-    # Erase all __done_* functions
     functions -e __done_ended
     functions -e __done_started
     functions -e __done_get_focused_window_id
@@ -341,6 +316,5 @@ function __done_uninstall -e done_uninstall
     functions -e __done_run_powershell_script
     functions -e __done_humanize_duration
 
-    # Erase __done variables
     set -e __done_version
 end
