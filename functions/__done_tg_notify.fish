@@ -7,7 +7,10 @@ function __done_tg_notify --argument-names title commandline exit_status
     end
 
     # Telegram rejects messages over 4096 characters.
-    set -l html (printf '%s\n' "$title" (string sub -l 4000 -- "$commandline") | string replace -a '&' '&amp;' | string replace -a '<' '&lt;' | string replace -a '>' '&gt;')
+    if test (string length -- "$commandline") -gt 4000
+        set commandline (string sub -l 3999 -- "$commandline" | string collect)…
+    end
+    set -l html (printf '%s\n' "$title" "$commandline" | string replace -a '&' '&amp;' | string replace -a '<' '&lt;' | string replace -a '>' '&gt;')
     set -l text "📝 $html[1]"\n\n"<pre>"(string join \n -- $html[2..-1] | string collect)"</pre> ✨"
 
     mkdir -p "$__fish_user_data_dir"

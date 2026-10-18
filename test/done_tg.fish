@@ -49,8 +49,12 @@ send 'Failed (1) after 6s' false 1
 check "only_failures still sends failures"
 
 send 'Failed (1) after 6s' (string repeat -n 5000 a) 1
+string match -q -- "*<pre>"(string repeat -n 3999 a)"…</pre>*" (cat $CAPTURE.argv)
+check "truncates long commands with an ellipsis"
+
+send 'Failed (1) after 6s' (string repeat -n 4000 a) 1
 string match -q -- "*<pre>"(string repeat -n 4000 a)"</pre>*" (cat $CAPTURE.argv)
-check "truncates long commands"
+check "keeps commands at the limit intact"
 
 rm -rf $tmp
 exit $failed
