@@ -34,6 +34,7 @@ send 'Failed (1) after 6s' (printf '%s\n' 'echo "a<&>b"' '' 'echo done' | string
 check "sends a message"
 set -l argv_text (cat $CAPTURE.argv | string collect)
 string match -q -- '*text=📝 Failed (1) after 6s
+
 📂 '(string replace -a '&' '&amp;' -- $PWD)'
 
 <pre>echo "a&lt;&amp;&gt;b"
